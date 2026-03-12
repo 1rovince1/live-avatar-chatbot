@@ -1,0 +1,14 @@
+services:
+  chatbot:
+    build: .
+    container_name: gemini-avatar-bot
+    ports:
+      - "8015:8015"
+    env_file:
+      - ./backend/.env
+    volumes:
+      # Mount your local code into the container so you can edit files 
+      # and see changes instantly without rebuilding the image!
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./generated:/app/generated

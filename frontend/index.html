@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Real-Time Avatar</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- ========================================================= -->
+    <!-- ==      THIS IMPORT MAP IS THE CRITICAL FIX          == -->
+    <!-- ========================================================= -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    
+    <!-- The deferred script for our application logic -->
+    <script type="module" defer src="main.js"></script>
+
+</head>
+<body>
+    <div id="container">
+        <div id="chat-container">
+            <div id="chat-box"></div>
+            <form id="chat-form">
+                <input type="text" id="user-input" placeholder="Type or click the mic to speak..." autocomplete="off">
+                <button type="button" id="mic-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zM10.8 4.9c0-.66.54-1.2 1.2-1.2s1.2.54 1.2 1.2v6.2c0 .66-.54 1.2-1.2 1.2s-1.2-.54-1.2-1.2V4.9z"/>
+                        <path fill="currentColor" d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                </button>
+                <button type="submit">Send</button>
+            </form>
+            <div id="controls-panel">
+                <p>Scene Controls:</p>
+                <button id="rim-light-toggle">Toggle Rim Light</button>
+            </div>
+        </div>
+        <div id="avatar-container">
+            <canvas id="avatar-canvas"></canvas>
+        </div>
+    </div>
+</body>
+</html>

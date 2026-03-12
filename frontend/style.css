@@ -1,0 +1,155 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#container {
+    display: flex;
+    width: 90vw;
+    max-width: 1200px;
+    height: 80vh;
+    background: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+#avatar-container {
+    flex: 1;
+    background-color: #e4e6eb;
+    position: relative;
+}
+
+#avatar-canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+#chat-box {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.message {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 18px;
+    max-width: 70%;
+}
+
+.user-message {
+    background-color: #0084ff;
+    color: white;
+    margin-left: auto;
+    text-align: right;
+}
+
+.bot-message {
+    background-color: #e4e6eb;
+    color: black;
+    margin-right: auto;
+    text-align: left;
+}
+
+#chat-form {
+    display: flex;
+}
+
+#user-input {
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 18px;
+}
+
+#chat-form button {
+    padding: 10px 20px;
+    border: none;
+    background-color: #0084ff;
+    color: white;
+    border-radius: 18px;
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+/* Add this to the end of your style.css */
+
+#mic-button {
+    padding: 8px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+#mic-button:hover {
+    color: #000;
+}
+
+/* Style for when the microphone is actively recording */
+#mic-button.recording {
+    color: #e60023; /* A nice red color */
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+
+/* --- Typing Indicator Loader --- */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 20px;
+    padding: 10px 15px;
+}
+
+.typing-indicator span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background-color: #888;
+    border-radius: 50%;
+    margin: 0 2px;
+    animation: bounce 1.4s infinite ease-in-out both;
+}
+
+/* Delay the animation for the 2nd and 3rd dots so they cascade */
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+}

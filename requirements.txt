@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+gTTS
+pydub
+# google-generativeai
+google-genai
+python-dotenv
