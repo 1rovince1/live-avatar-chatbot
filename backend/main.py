@@ -75,7 +75,7 @@ app = FastAPI()
 
 class ChatRequest(BaseModel):
     message: str
-    voice: str = "female"
+    voice: str = "male"
 
 # --- Helper Functions (unchanged) ---
 def create_lipsync_data(audio_path: str, output_path: str):

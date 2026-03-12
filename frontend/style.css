@@ -1,131 +1,193 @@
+/* --- Global Reset & Full Screen --- */
 body {
-    font-family: sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    background-color: #f0f2f5;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    padding: 0;
+    background-color: #111; /* Dark background before 3D loads */
+    overflow: hidden; /* Prevents scrollbars */
+    width: 100vw;
     height: 100vh;
 }
 
 #container {
-    display: flex;
-    width: 90vw;
-    max-width: 1200px;
-    height: 80vh;
-    background: white;
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-#chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-}
-
-#avatar-container {
-    flex: 1;
-    background-color: #e4e6eb;
+    width: 100vw;
+    height: 100vh;
     position: relative;
+}
+
+/* --- 3D Avatar Canvas (Background) --- */
+#avatar-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; /* Stays in the back */
 }
 
 #avatar-canvas {
     width: 100% !important;
     height: 100% !important;
+    display: block;
+    outline: none;
 }
 
+/* --- Floating Chat Interface --- */
+#chat-container {
+    position: absolute;
+    left: 30px;
+    top: 30px;
+    bottom: 30px;
+    width: 380px;
+    z-index: 2; /* Floats above the 3D canvas */
+    
+    /* Modern Frosted Glass Effect */
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 24px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    
+    display: flex;
+    flex-direction: column;
+    padding: 25px;
+    box-sizing: border-box;
+}
+
+/* --- Chat Messages --- */
 #chat-box {
     flex-grow: 1;
     overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 4px;
+    padding-right: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
 }
 
+/* Custom Scrollbar for the chat */
+#chat-box::-webkit-scrollbar { width: 6px; }
+#chat-box::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+
 .message {
-    margin-bottom: 10px;
-    padding: 8px 12px;
+    margin-bottom: 15px;
+    padding: 12px 16px;
     border-radius: 18px;
-    max-width: 70%;
+    max-width: 85%;
+    font-size: 15px;
+    line-height: 1.4;
+    word-wrap: break-word;
 }
 
 .user-message {
-    background-color: #0084ff;
+    background-color: #007bff;
     color: white;
-    margin-left: auto;
-    text-align: right;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2);
 }
 
 .bot-message {
-    background-color: #e4e6eb;
-    color: black;
-    margin-right: auto;
-    text-align: left;
+    background-color: white;
+    color: #333;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
+/* --- Input Area --- */
 #chat-form {
     display: flex;
+    gap: 8px;
+    align-items: center;
 }
 
 #user-input {
     flex-grow: 1;
-    border: 1px solid #ccc;
-    padding: 10px;
-    border-radius: 18px;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: rgba(255,255,255,0.9);
+    padding: 12px 15px;
+    border-radius: 20px;
+    outline: none;
+    font-size: 14px;
+    transition: border 0.2s;
 }
 
-#chat-form button {
-    padding: 10px 20px;
+#user-input:focus { border: 1px solid #007bff; }
+
+#chat-form button[type="submit"] {
+    padding: 12px 20px;
     border: none;
-    background-color: #0084ff;
+    background-color: #007bff;
     color: white;
-    border-radius: 18px;
-    margin-left: 10px;
+    border-radius: 20px;
     cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
 }
 
-/* Add this to the end of your style.css */
+#chat-form button[type="submit"]:hover { background-color: #0056b3; }
 
 #mic-button {
     padding: 8px;
     border: none;
     background-color: transparent;
     cursor: pointer;
-    color: #555;
+    color: #666;
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: color 0.2s;
+    border-radius: 50%;
+    transition: all 0.2s;
 }
 
-#mic-button:hover {
-    color: #000;
-}
+#mic-button:hover { color: #007bff; background: rgba(0, 123, 255, 0.1); }
 
-/* Style for when the microphone is actively recording */
 #mic-button.recording {
-    color: #e60023; /* A nice red color */
+    color: #ff3b30;
     animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.1);
-    }
-    100% {
-        transform: scale(1);
-    }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
 }
 
+/* --- Extra Controls --- */
+#controls-panel {
+    padding: 15px;
+    margin-top: 15px;
+    border-radius: 16px;
+    background-color: rgba(0, 0, 0, 0.03);
+    font-size: 13px;
+}
 
-/* --- Typing Indicator Loader --- */
+#controls-panel p { margin: 0 0 10px 0; font-weight: bold; color: #444; }
+
+#rim-light-toggle {
+    padding: 8px 12px;
+    border: 1px solid #007bff;
+    background: transparent;
+    color: #007bff;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+#rim-light-toggle:hover { background: #007bff; color: white; }
+
+#voice-select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: white;
+    outline: none;
+    cursor: pointer;
+}
+
+/* --- Loading Indicator --- */
 .typing-indicator {
     display: flex;
     align-items: center;
@@ -134,7 +196,6 @@ body {
     height: 20px;
     padding: 10px 15px;
 }
-
 .typing-indicator span {
     display: inline-block;
     width: 6px;
@@ -144,12 +205,6 @@ body {
     margin: 0 2px;
     animation: bounce 1.4s infinite ease-in-out both;
 }
-
-/* Delay the animation for the 2nd and 3rd dots so they cascade */
 .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
 .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-
-@keyframes bounce {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1); }
-}
+@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }

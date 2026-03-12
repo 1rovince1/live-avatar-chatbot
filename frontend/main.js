@@ -22,38 +22,66 @@ scene.add(camera);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableRotate = false; controls.enableZoom = false; controls.enablePan = false;
 
-// --- Lighting & Environment ---
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const keyLight = new THREE.DirectionalLight(0xffffff, 2.5);
-keyLight.position.set(-3, 3, 3);
-keyLight.castShadow = true;
-keyLight.shadow.mapSize.width = 2048; keyLight.shadow.mapSize.height = 2048;
-scene.add(keyLight);
-const fillLight = new THREE.DirectionalLight(0xffffff, 1.5);
-fillLight.position.set(3, 2, 3);
-scene.add(fillLight);
-const rimLight = new THREE.DirectionalLight(0xffffff, 3.0);
-rimLight.position.set(0, 2, -5);
-scene.add(rimLight);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
-scene.add(ground);
-new RGBELoader().setPath('assets/').load('background.hdr', function(t){t.mapping=THREE.EquirectangularReflectionMapping;scene.background=t;scene.environment=t;});
+// =========================================================
+// ==           IMPROVED INDOOR LIGHTING                  ==
+// =========================================================
+// Since he will be in a room, we want brighter, softer ambient light
+scene.add(new THREE.AmbientLight(0xffffff, 1.5)); 
 
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+keyLight.position.set(-2, 2, 3); // Moved slightly more to the front
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 2048;
+keyLight.shadow.mapSize.height = 2048;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xffffff, 1.0);
+fillLight.position.set(2, 2, 2);
+scene.add(fillLight);
+
+// We removed the dark gray 'ground' plane so it doesn't clip with the 3D room floor!
+
+// =========================================================
+// ==           NEW: LOAD THE 3D ENVIRONMENT              ==
+// =========================================================
+const loader = new GLTFLoader();
+
+loader.load('./assets/room.glb', (gltf) => {
+    const room = gltf.scene;
+    
+    // --- 1. FIX THE SCALE (Size) ---
+    // If the room is tiny, we multiply its size. 
+    // Try 10, 30, 50, or even 100 depending on the specific model!
+    const scaleFactor = 3; 
+    room.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    
+    // --- 2. FIX THE POSITION (Placement) ---
+    // Move the room so the floor lines up with his feet (Y = 0 is usually his feet)
+    // You can also push the room backward (negative Z) so he isn't standing in a wall
+    // Values: (X: left/right, Y: up/down, Z: forward/backward)
+    room.position.set(0, 0, 0); 
+
+    scene.add(room);
+    console.log("SUCCESS: Doctor's office environment loaded.");
+}, undefined, (e) => {
+    console.log("Room not found yet, that's okay! We will just use the background.");
+});
+
+
+// --- Post-Processing Setup ---
 const composer = new EffectComposer(renderer);
 let bokehPass;
 
 // =========================================================
-// == NEW: ANIMATION MIXER VARIABLES                      ==
+// ==           NEW: ANIMATION MIXER VARIABLES            ==
 // =========================================================
-const clock = new THREE.Clock(); // Needed to track time for animations
+const clock = new THREE.Clock(); 
 let mixer = null;
 let idleAction = null;
 let talkingAction = null;
 let activeAction = null;
 
 // --- Avatar Setup ---
-const loader = new GLTFLoader();
 let avatar = null;
 let faceMeshes =[]; 
 let currentLipSync = null;
@@ -62,72 +90,86 @@ let cameraBoundaryBox = null;
 
 let jawOpenIdx = -1, mouthOpenIdx = -1, mouthSmileIdx = -1, mouthPuckerIdx = -1, mouthFunnelIdx = -1;
 
-loader.load('./assets/rovince-animated-avatar.glb', (gltf) => {
+loader.load('./assets/rovince-doctor.glb', (gltf) => {
     avatar = gltf.scene;
     avatar.traverse(n => { if (n.isMesh) n.castShadow = true; });
+    
+    // =========================================================
+    // == NEW: ROTATE AVATAR TO FACE THE CHAT WINDOW          ==
+    // =========================================================
+    avatar.rotation.y = -0.15; // Turns the avatar slightly to the right
     scene.add(avatar);
     
-    // 1. Initialize the Animation Mixer for this avatar
+    // 1. Initialize the Animation Mixer
     mixer = new THREE.AnimationMixer(avatar);
 
-    // =========================================================
-    // == NEW: HELPER TO FIX MIXAMO BONE NAMES & TELEPORTING  ==
-    // =========================================================
+    // 2. Load the Idle & Talking Animations (Cleaned)
     function cleanMixamoAnimation(clip) {
-        // 1. Filter out all position and scale tracks. We ONLY want joint rotations!
-        const filteredTracks = clip.tracks.filter(track => {
-            return track.name.endsWith('.quaternion');
-        });
-
-        // 2. Strip the 'mixamorig_' prefix from the remaining rotation tracks
-        filteredTracks.forEach(track => {
-            track.name = track.name.replace('mixamorig_', '');
-        });
-
-        // 3. Apply the clean tracks back to the animation clip
+        const filteredTracks = clip.tracks.filter(t => t.name.endsWith('.quaternion'));
+        filteredTracks.forEach(t => t.name = t.name.replace('mixamorig_', ''));
         clip.tracks = filteredTracks;
         return clip;
     }
 
-    // 2. Load the Idle Animation
-    loader.load('./assets/idle.glb', (animGltf) => {
+    loader.load('./assets/breathing_idle.glb', (animGltf) => {
         let animationClip = animGltf.animations[0];
         if (animationClip) {
-            animationClip = cleanMixamoAnimation(animationClip); // Fix names here!
+            animationClip = cleanMixamoAnimation(animationClip); 
             idleAction = mixer.clipAction(animationClip);
             idleAction.play(); 
             activeAction = idleAction;
-            console.log("SUCCESS: Idle animation loaded and cleaned.");
         }
     });
 
-    // 3. Load the Talking Animation
     loader.load('./assets/talking.glb', (animGltf) => {
         let animationClip = animGltf.animations[0];
         if (animationClip) {
-            animationClip = cleanMixamoAnimation(animationClip); // Fix names here!
+            animationClip = cleanMixamoAnimation(animationClip);
             talkingAction = mixer.clipAction(animationClip);
-            console.log("SUCCESS: Talking animation loaded and cleaned.");
         }
     });
 
-    const box = new THREE.Box3().setFromObject(avatar);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
+    // =========================================================
+    // == FIXED: FIND THE HEAD FOR PERFECT FRAMING            ==
+    // =========================================================
+    const headBone = avatar.getObjectByName('Head') || avatar.getObjectByName('Neck');
+    const targetPosition = new THREE.Vector3();
+    
+    if (headBone) {
+        // If we found the head, get its exact coordinate in the 3D world
+        headBone.getWorldPosition(targetPosition);
+    } else {
+        // Fallback: guess based on height
+        const box = new THREE.Box3().setFromObject(avatar);
+        box.getCenter(targetPosition);
+        targetPosition.y += box.getSize(new THREE.Vector3()).y * 0.35; 
+    }
 
-    camera.position.set(center.x, center.y + size.y * 0.1, center.z + size.y);
-    controls.target.copy(center);
+    // Shift framing to the right (moves avatar left)
+    const xOffset = -0.25; 
+
+    // Put camera at face height, slightly away
+    camera.position.set(targetPosition.x + xOffset, targetPosition.y, targetPosition.z + 2);
+    
+    // Tell the camera controls to stare directly at the face
+    controls.target.copy(targetPosition).add(new THREE.Vector3(xOffset, 0, 0));
     controls.update();
 
     cameraBoundaryBox = new THREE.Box3(
-        new THREE.Vector3(center.x - 0.3, center.y - 0.2, center.z + size.y * 0.6),
-        new THREE.Vector3(center.x + 0.3, center.y + size.y * 0.4, center.z + size.y * 1.4)
+        new THREE.Vector3((targetPosition.x + xOffset) - 0.4, targetPosition.y - 0.3, targetPosition.z + 0.6),
+        new THREE.Vector3((targetPosition.x + xOffset) + 0.4, targetPosition.y + 0.3, targetPosition.z + 3.0)
     );
 
+    // Setup Depth of Field to softly blur the doctor's office in the background
     composer.addPass(new RenderPass(scene, camera));
-    bokehPass = new BokehPass(scene, camera, { focus: camera.position.distanceTo(center), aperture: 0.002, maxblur: 0.005 });
-    composer.addPass(bokehPass);
+    // bokehPass = new BokehPass(scene, camera, { 
+    //     focus: camera.position.distanceTo(targetPosition), // Focus precisely on the face
+    //     aperture: 0.003, // Slight blur
+    //     maxblur: 0.005 
+    // });
+    // composer.addPass(bokehPass);
     
+    // --- Universal Face Finder ---
     avatar.traverse(n => { 
         if (n.isSkinnedMesh && n.morphTargetDictionary) {
             const dict = n.morphTargetDictionary;
@@ -145,11 +187,10 @@ loader.load('./assets/rovince-animated-avatar.glb', (gltf) => {
 });
 
 // =========================================================
-// == NEW: SMOOTH ANIMATION CROSSFADER                    ==
+// == SMOOTH ANIMATION CROSSFADER                         ==
 // =========================================================
 function fadeToAction(nextAction, duration) {
     if (!nextAction || !activeAction || nextAction === activeAction) return;
-    
     nextAction.reset().fadeIn(duration).play();
     activeAction.fadeOut(duration);
     activeAction = nextAction;
