@@ -5,7 +5,8 @@ from pydantic import BaseModel
 import subprocess
 import os
 import time
-from gtts import gTTS
+# from gtts import gTTS
+import edge_tts
 from pydub import AudioSegment
 from dotenv import load_dotenv
 from google import genai
@@ -74,6 +75,7 @@ app = FastAPI()
 
 class ChatRequest(BaseModel):
     message: str
+    voice: str = "female"
 
 # --- Helper Functions (unchanged) ---
 def create_lipsync_data(audio_path: str, output_path: str):
@@ -119,8 +121,21 @@ async def chat(request: ChatRequest):
     lipsync_path = os.path.join(generated_dir, lipsync_filename)
 
     # 1. Generate TTS
-    tts = gTTS(text=response_text, lang='en')
-    tts.save(mp3_path)
+    # tts = gTTS(text=response_text, lang='en')
+    # tts.save(mp3_path)
+
+    # =======================================================
+    # == NEW: EDGE-TTS AUDIO GENERATION                    ==
+    # =======================================================
+    # Select high-quality neural voices based on the user's choice
+    voice_id = "en-US-GuyNeural" if request.voice == "male" else "en-US-AriaNeural"
+    
+    print(f"Generating TTS for: '{response_text}' using voice: {voice_id}")
+    
+    # edge_tts is asynchronous, so we must 'await' it
+    communicate = edge_tts.Communicate(response_text, voice_id)
+    await communicate.save(mp3_path)
+    # =======================================================
     
     # 2. Convert to WAV
     AudioSegment.from_mp3(mp3_path).export(wav_path, format="wav", parameters=["-ar", "16000"])

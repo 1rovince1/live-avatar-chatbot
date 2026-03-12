@@ -1,7 +1,7 @@
-fastapi
-uvicorn
-gTTS
-pydub
-# google-generativeai
-google-genai
-python-dotenv
+fastapi==0.133.0
+uvicorn==0.41.0
+# gTTS==2.5.4
+edge-tts==7.2.7
+pydub==0.25.1
+google-genai==1.64.0
+python-dotenv==1.2.1
