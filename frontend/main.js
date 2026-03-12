@@ -711,12 +711,54 @@ new RGBELoader().setPath('assets/').load('background.hdr', function(t){t.mapping
 const composer = new EffectComposer(renderer);
 let bokehPass;
 
+// // --- Avatar and Animation Setup ---
+// const loader = new GLTFLoader();
+// let avatar = null;
+// let lipSyncMesh = null;
+// let mouthOpenIndex = -1;
+// let mouthSmileIndex = -1; 
+// let currentLipSync = null;
+// let isSpeaking = false;
+// let cameraBoundaryBox = null;
+
+// loader.load('./assets/avatar.glb', (gltf) => {
+//     avatar = gltf.scene;
+//     avatar.traverse(n => { if (n.isMesh) n.castShadow = true; });
+//     scene.add(avatar);
+    
+//     const box = new THREE.Box3().setFromObject(avatar);
+//     const center = box.getCenter(new THREE.Vector3());
+//     const size = box.getSize(new THREE.Vector3());
+
+//     // Initial Framing
+//     camera.position.set(center.x, center.y + size.y * 0.1, center.z + size.y);
+//     controls.target.copy(center);
+//     controls.update();
+
+//     // Define Movement Boundaries
+//     cameraBoundaryBox = new THREE.Box3(
+//         new THREE.Vector3(center.x - 0.3, center.y - 0.2, center.z + size.y * 0.6),
+//         new THREE.Vector3(center.x + 0.3, center.y + size.y * 0.4, center.z + size.y * 1.4)
+//     );
+
+//     composer.addPass(new RenderPass(scene, camera));
+//     bokehPass = new BokehPass(scene, camera, { focus: camera.position.distanceTo(center), aperture: 0.002, maxblur: 0.005 });
+//     composer.addPass(bokehPass);
+    
+//     avatar.traverse(n => { if (n.isSkinnedMesh && n.name === 'Wolf3D_Head') lipSyncMesh = n; });
+//     if (lipSyncMesh) {
+//         const d = lipSyncMesh.morphTargetDictionary;
+//         if (d.hasOwnProperty('mouthOpen')) mouthOpenIndex = d['mouthOpen'];
+//         if (d.hasOwnProperty('mouthSmile')) mouthSmileIndex = d['mouthSmile'];
+//     }
+// });
+
 // --- Avatar and Animation Setup ---
 const loader = new GLTFLoader();
 let avatar = null;
-let lipSyncMesh = null;
-let mouthOpenIndex = -1;
-let mouthSmileIndex = -1; 
+
+// NEW: Use an array to hold Head, Teeth, and Tongue meshes!
+let faceMeshes =[]; 
 let currentLipSync = null;
 let isSpeaking = false;
 let cameraBoundaryBox = null;
@@ -735,7 +777,6 @@ loader.load('./assets/rovince-animated-avatar.glb', (gltf) => {
     controls.target.copy(center);
     controls.update();
 
-    // Define Movement Boundaries
     cameraBoundaryBox = new THREE.Box3(
         new THREE.Vector3(center.x - 0.3, center.y - 0.2, center.z + size.y * 0.6),
         new THREE.Vector3(center.x + 0.3, center.y + size.y * 0.4, center.z + size.y * 1.4)
@@ -745,11 +786,22 @@ loader.load('./assets/rovince-animated-avatar.glb', (gltf) => {
     bokehPass = new BokehPass(scene, camera, { focus: camera.position.distanceTo(center), aperture: 0.002, maxblur: 0.005 });
     composer.addPass(bokehPass);
     
-    avatar.traverse(n => { if (n.isSkinnedMesh && n.name === 'Wolf3D_Head') lipSyncMesh = n; });
-    if (lipSyncMesh) {
-        const d = lipSyncMesh.morphTargetDictionary;
-        if (d.hasOwnProperty('mouthOpen')) mouthOpenIndex = d['mouthOpen'];
-        if (d.hasOwnProperty('mouthSmile')) mouthSmileIndex = d['mouthSmile'];
+    // =========================================================
+    // == UPGRADED UNIVERSAL FACE FINDER                      ==
+    // =========================================================
+    avatar.traverse(n => { 
+        if (n.isSkinnedMesh && n.morphTargetDictionary) {
+            const dict = n.morphTargetDictionary;
+            // If the mesh has jawOpen OR mouthOpen, it belongs to the mouth system!
+            if (dict.hasOwnProperty('jawOpen') || dict.hasOwnProperty('mouthOpen')) {
+                faceMeshes.push(n);
+                console.log("SUCCESS: Linked mesh for lip-sync:", n.name);
+            }
+        } 
+    });
+
+    if (faceMeshes.length === 0) {
+        console.error("CRITICAL: Could not find any face meshes with morph targets.");
     }
 });
 
@@ -826,46 +878,73 @@ function addMessage(e,t){const n=document.createElement("div");n.classList.add("
 function animate() {
     requestAnimationFrame(animate);
 
-    // Lip-sync logic using the correct variable names
-    if (isSpeaking && lipSyncMesh && currentLipSync && mouthOpenIndex !== -1) {
-        const currentTime = audio.currentTime;
-        let currentVisemeKey = 'A';
-        for (const viseme of currentLipSync.mouthCues) {
-            if (currentTime >= viseme.start) {
-                currentVisemeKey = viseme.value;
-            } else {
-                break;
-            }
+    if (isSpeaking && faceMeshes.length > 0 && currentLipSync) {
+        const t = audio.currentTime;
+        let c = 'A';
+        for (const v of currentLipSync.mouthCues) {
+            if (t >= v.start) c = v.value;
+            else break;
         }
         
-        let mouthOpenValue = 0;
-        let mouthSmileValue = 0;
-        switch (currentVisemeKey) {
-            case 'A': case 'X': mouthOpenValue = 0; break;
-            case 'B': mouthOpenValue = 0.2; break;
-            case 'C': case 'G': case 'H': mouthOpenValue = 0.3; mouthSmileValue = 0.2; break;
-            case 'E': mouthOpenValue = 0.4; mouthSmileValue = 0.5; break;
-            case 'D': case 'F': mouthOpenValue = 0.7; break;
-            default: mouthOpenValue = 0; break;
+        // Target values based on Rhubarb's A-H cues
+        let jawVal = 0, smileVal = 0, puckerVal = 0, funnelVal = 0;
+        
+        switch (c) {
+            case 'A': case 'X': break; // Silence/MBP (Mouth closed)
+            case 'B': jawVal = 0.1; break; // K, S, T
+            case 'C': jawVal = 0.2; smileVal = 0.2; break; // E, AE
+            case 'D': jawVal = 0.4; break; // A, I (Wide open)
+            case 'E': jawVal = 0.3; funnelVal = 0.5; puckerVal = 0.2; break; // O (Rounded)
+            case 'F': jawVal = 0.1; puckerVal = 0.6; funnelVal = 0.4; break; // U (Puckered)
+            case 'G': case 'H': jawVal = 0.2; funnelVal = 0.2; break; // F, V, L
         }
 
-        lipSyncMesh.morphTargetInfluences[mouthOpenIndex] = THREE.MathUtils.lerp(
-            lipSyncMesh.morphTargetInfluences[mouthOpenIndex], mouthOpenValue, 0.3
-        );
-        if (mouthSmileIndex !== -1) {
-            lipSyncMesh.morphTargetInfluences[mouthSmileIndex] = THREE.MathUtils.lerp(
-                lipSyncMesh.morphTargetInfluences[mouthSmileIndex], mouthSmileValue, 0.3
-            );
-        }
-    } else if (lipSyncMesh && mouthOpenIndex !== -1) {
-        lipSyncMesh.morphTargetInfluences[mouthOpenIndex] = THREE.MathUtils.lerp(
-            lipSyncMesh.morphTargetInfluences[mouthOpenIndex], 0, 0.2
-        );
-        if (mouthSmileIndex !== -1) {
-            lipSyncMesh.morphTargetInfluences[mouthSmileIndex] = THREE.MathUtils.lerp(
-                lipSyncMesh.morphTargetInfluences[mouthSmileIndex], 0, 0.2
-            );
-        }
+        // Apply these values to ALL linked meshes (Head, Teeth, Tongue)
+        faceMeshes.forEach(mesh => {
+            const dict = mesh.morphTargetDictionary;
+            const influences = mesh.morphTargetInfluences;
+
+            // Helper function to smoothly apply shapes only if the mesh actually has them
+            const applyMorph = (shapeName, targetValue) => {
+                if (dict.hasOwnProperty(shapeName)) {
+                    const idx = dict[shapeName];
+                    influences[idx] = THREE.MathUtils.lerp(influences[idx], targetValue, 0.4);
+                }
+            };
+
+            // Apply Advanced ARKit shapes (Your new model)
+            applyMorph('jawOpen', jawVal);
+            applyMorph('mouthSmile', smileVal);
+            applyMorph('mouthSmileLeft', smileVal);
+            applyMorph('mouthSmileRight', smileVal);
+            applyMorph('mouthPucker', puckerVal);
+            applyMorph('mouthFunnel', funnelVal);
+
+            // Apply Fallback shapes (In case you use RPM later)
+            applyMorph('mouthOpen', jawVal);
+        });
+
+    } else if (faceMeshes.length > 0) {
+        // Smoothly close mouth when silent
+        faceMeshes.forEach(mesh => {
+            const dict = mesh.morphTargetDictionary;
+            const influences = mesh.morphTargetInfluences;
+
+            const closeMorph = (shapeName) => {
+                if (dict.hasOwnProperty(shapeName)) {
+                    const idx = dict[shapeName];
+                    influences[idx] = THREE.MathUtils.lerp(influences[idx], 0, 0.2);
+                }
+            };
+
+            closeMorph('jawOpen');
+            closeMorph('mouthOpen');
+            closeMorph('mouthSmile');
+            closeMorph('mouthSmileLeft');
+            closeMorph('mouthSmileRight');
+            closeMorph('mouthPucker');
+            closeMorph('mouthFunnel');
+        });
     }
 
     // Renderer resize and render logic
@@ -880,26 +959,19 @@ function animate() {
     }
 
     // --- PROCEDURAL IDLE ANIMATIONS ---
-    const time = Date.now() * 0.001; // Get current time in seconds
+    const time = Date.now() * 0.001; 
 
     if (avatar) {
-        // 1. Simulate Breathing (Moves the entire avatar chest up and down very slightly)
-        // Using a sine wave to create a smooth, looping breath cycle
         const breathCycle = Math.sin(time * 2.0); 
         avatar.position.y = breathCycle * 0.005; 
         
-        // 2. Simulate Head Movement
-        // We look for standard bone names. RPM usually uses 'Head' or 'Neck'
         const headBone = avatar.getObjectByName('Head') || avatar.getObjectByName('Neck');
-        
         if (headBone) {
             if (isSpeaking) {
-                // When speaking, add slight, erratic head bobs to match talking energy
                 headBone.rotation.x = Math.sin(time * 5) * 0.01;
                 headBone.rotation.y = Math.sin(time * 1.5) * 0.02;
                 headBone.rotation.z = Math.sin(time * 3) * 0.005;
             } else {
-                // When idle, slow, gentle drifting so she doesn't look frozen
                 headBone.rotation.x = Math.sin(time * 0.8) * 0.02;
                 headBone.rotation.y = Math.sin(time * 0.5) * 0.03;
             }
@@ -909,5 +981,4 @@ function animate() {
     composer.render();
 }
 
-// Start the animation loop
 animate();
